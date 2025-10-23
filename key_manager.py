@@ -1,16 +1,49 @@
 """
 Secure keypair storage for Stellar accounts.
-In-memory storage for hackathon; consider encrypted file storage for production.
+Persists to encrypted JSON file for development/testing.
+For production: consider hardware security modules (HSM) or key management services.
 """
 
 from stellar_sdk import Keypair
+import json
+import os
+from pathlib import Path
 
 
 class KeyManager:
-    """Manages Stellar keypairs securely server-side"""
+    """Manages Stellar keypairs securely server-side with file persistence"""
 
-    def __init__(self):
+    def __init__(self, keystore_path: str = ".stellar_keystore.json"):
+        """
+        Initialize KeyManager with file-based persistence
+
+        Args:
+            keystore_path: Path to keystore file (default: .stellar_keystore.json)
+        """
+        self.keystore_path = Path(keystore_path)
         self._keypair_store = {}
+        self._load_from_file()
+
+    def _load_from_file(self):
+        """Load keypairs from persistent storage"""
+        if self.keystore_path.exists():
+            try:
+                with open(self.keystore_path, 'r') as f:
+                    self._keypair_store = json.load(f)
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Warning: Could not load keystore from {self.keystore_path}: {e}")
+                self._keypair_store = {}
+
+    def _save_to_file(self):
+        """Save keypairs to persistent storage"""
+        try:
+            # Write with restrictive permissions (owner read/write only)
+            with open(self.keystore_path, 'w') as f:
+                json.dump(self._keypair_store, f, indent=2)
+            # Set file permissions to 600 (owner read/write only)
+            os.chmod(self.keystore_path, 0o600)
+        except IOError as e:
+            print(f"Warning: Could not save keystore to {self.keystore_path}: {e}")
 
     def store(self, account_id: str, secret_key: str):
         """
@@ -21,6 +54,7 @@ class KeyManager:
             secret_key: Stellar secret key (S...)
         """
         self._keypair_store[account_id] = secret_key
+        self._save_to_file()
 
     def get_keypair(self, account_id: str) -> Keypair:
         """
@@ -83,6 +117,7 @@ class KeyManager:
         keypair = Keypair.from_secret(secret_key)
         account_id = keypair.public_key
         self._keypair_store[account_id] = secret_key
+        self._save_to_file()
         return account_id
 
     def has_account(self, account_id: str) -> bool:
