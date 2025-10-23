@@ -26,13 +26,23 @@ def _dict_to_asset(asset_dict: dict) -> Asset:
 
     Args:
         asset_dict: {"type": "native"} or {"code": "USDC", "issuer": "G..."}
+                    Also supports Horizon format: {"asset_type": "native"} or
+                    {"asset_type": "credit_alphanum4", "asset_code": "USDC", "asset_issuer": "G..."}
 
     Returns:
         Asset object for use in SDK operations
     """
-    if asset_dict.get("type") == "native":
+    # Handle both formats: {"type": "native"} and {"asset_type": "native"}
+    asset_type = asset_dict.get("type") or asset_dict.get("asset_type")
+
+    if asset_type == "native":
         return Asset.native()
-    return Asset(asset_dict["code"], asset_dict["issuer"])
+
+    # Handle both formats: {"code": "X", "issuer": "Y"} and {"asset_code": "X", "asset_issuer": "Y"}
+    code = asset_dict.get("code") or asset_dict.get("asset_code")
+    issuer = asset_dict.get("issuer") or asset_dict.get("asset_issuer")
+
+    return Asset(code, issuer)
 
 
 # ============================================================================

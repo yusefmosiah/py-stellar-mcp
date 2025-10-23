@@ -209,10 +209,73 @@ MIT License
 
 ---
 
+## [0.1.1] - 2025-10-23
+
+### Added
+
+#### Testing
+- **test_sdex_trading.py** - Comprehensive SDEX trading test suite
+  - 15 integration tests covering full trading workflow
+  - Tests account creation, funding, and trustline setup (6 tests)
+  - Tests orderbook querying (1 test)
+  - Tests order placement - buy and sell orders (2 tests)
+  - Tests open order checking (2 tests)
+  - Tests order cancellation (2 tests)
+  - Tests cancellation verification (1 test)
+  - **Real market trade execution** - Successfully acquired 0.1 USDC at 892.38 XLM/USDC (1 test)
+  - Automatic markdown report generation with timestamped results
+  - Test accounts with Stellar Expert explorer links
+  - 100% success rate (15/15 tests passing)
+
+#### Test Reports
+- **test_reports/** directory - Markdown test reports
+  - Timestamped reports for each test run
+  - Full test results with status indicators
+  - Transaction hashes and ledger numbers
+  - Account balances before and after trades
+  - Links to test accounts on Stellar Expert
+
+### Fixed
+
+#### Asset Conversion Bug
+- **stellar_tools.py:_dict_to_asset()** - Enhanced asset conversion helper
+  - Now handles both custom format: `{"type": "native"}` or `{"code": "USDC", "issuer": "G..."}`
+  - Also supports Horizon API format: `{"asset_type": "native"}` or `{"asset_type": "credit_alphanum4", "asset_code": "USDC", "asset_issuer": "G..."}`
+  - Fixes KeyError when processing offers from Horizon API
+  - Enables cancel_order() to work correctly with Horizon offer data
+
+### Testing Results
+
+#### Real Trade Execution
+- ✅ Successfully executed market buy on testnet SDEX
+- ✅ Acquired 0.1 USDC at market price (892.37908 XLM/USDC)
+- ✅ Cost: ~89.24 XLM (testnet funds from Friendbot)
+- ✅ Verified balance updates in real-time
+- ✅ Transaction recorded on testnet ledger
+
+#### Testnet Orderbook Analysis
+- Found 9 bid orders (buyers) for USDC/XLM
+- Found 1 ask order (seller) at 892.38 XLM/USDC
+- Confirmed limited USDC liquidity on testnet
+- Successfully matched with available ask order
+
+### Technical Details
+
+#### Test Suite Features
+- Parallel account creation and setup
+- Real-time orderbook querying
+- Transaction hash tracking
+- Ledger number verification
+- Balance verification before/after trades
+- Automatic report generation with timestamps
+- Error handling and detailed error messages
+- Support for both filled and unfilled orders
+
+---
+
 ## [Unreleased]
 
 ### Planned Features
-- SDEX trading integration tests
 - Path payment support
 - Liquidity pool operations
 - Multi-signature account support
@@ -237,4 +300,5 @@ MIT License
 
 ## Version History
 
+- **0.1.1** (2025-10-23) - SDEX trading tests and asset conversion bug fix
 - **0.1.0** (2025-10-23) - Initial release with core Stellar MCP functionality
