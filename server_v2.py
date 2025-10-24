@@ -94,65 +94,75 @@ def account_manager_tool(
 def trading_tool(
     action: str,
     account_id: str,
-    base_asset: str = "XLM",
-    quote_asset: str = None,
-    quote_issuer: str = None,
+    buying_asset: str = None,
+    selling_asset: str = None,
+    buying_issuer: str = None,
+    selling_issuer: str = None,
     amount: str = None,
     price: str = None,
+    order_type: str = "limit",
     offer_id: str = None,
     auto_sign: bool = True
 ) -> dict:
     """
-    Unified SDEX trading with smart defaults and high-level semantics.
-    
+    Intuitive SDEX trading with explicit buying/selling semantics.
+
     Actions:
-        market_buy - Buy quote asset at market price (crosses spread)
-        market_sell - Sell quote asset at market price (crosses spread)
-        limit_buy - Place limit buy order at specified price
-        limit_sell - Place limit sell order at specified price
-        cancel - Cancel open order by offer_id
-        orders - Get all open orders for account
-    
+        buy - Acquire buying_asset by spending selling_asset
+        sell - Give up selling_asset to acquire buying_asset
+        cancel_order - Cancel an open order by offer_id
+        get_orders - Get all open orders for account
+
     Args:
-        action: Trading operation (see Actions above)
+        action: Trading operation (buy, sell, cancel_order, get_orders)
         account_id: Stellar public key (G...)
-        base_asset: Base asset code (default: "XLM" for native)
-        quote_asset: Quote asset code (e.g., "USDC")
-        quote_issuer: Quote asset issuer (required if quote_asset != "XLM")
-        amount: Amount to buy/sell as decimal string (e.g., "10.5")
-        price: Price per unit for limit orders (e.g., "0.50")
-        offer_id: Offer ID for cancel action
+        buying_asset: Asset you want to acquire (e.g., "USDC")
+        selling_asset: Asset you're spending (e.g., "XLM")
+        buying_issuer: Issuer of buying_asset (required if buying_asset != "XLM")
+        selling_issuer: Issuer of selling_asset (required if selling_asset != "XLM")
+        amount: For buy: amount of buying_asset; For sell: amount of selling_asset
+        price: Price for limit orders. For buy: selling_asset per buying_asset
+        order_type: "limit" or "market" (default: "limit")
+        offer_id: Offer ID for cancel_order action
         auto_sign: Auto-sign and submit transaction (default: True)
-    
+
     Examples:
-        # Market buy 10 USDC with XLM
-        trading_tool(action="market_buy", account_id="G...", 
-                    quote_asset="USDC", quote_issuer="GBBD...", amount="10")
-        
-        # Limit buy 10 USDC at 0.50 XLM per USDC
-        trading_tool(action="limit_buy", account_id="G...", 
-                    quote_asset="USDC", quote_issuer="GBBD...", 
-                    amount="10", price="0.50")
-        
+        # Market buy 4 USDC by spending XLM
+        trading_tool(action="buy", order_type="market", account_id="G...",
+                    buying_asset="USDC", selling_asset="XLM",
+                    buying_issuer="GBBD...", amount="4")
+
+        # Limit buy 4 USDC, willing to pay 15 XLM per USDC
+        trading_tool(action="buy", order_type="limit", account_id="G...",
+                    buying_asset="USDC", selling_asset="XLM",
+                    buying_issuer="GBBD...", amount="4", price="15")
+
+        # Sell 100 XLM for USDC, wanting 0.01 USDC per XLM
+        trading_tool(action="sell", order_type="limit", account_id="G...",
+                    selling_asset="XLM", buying_asset="USDC",
+                    buying_issuer="GBBD...", amount="100", price="0.01")
+
         # Cancel order
-        trading_tool(action="cancel", account_id="G...", offer_id="12345")
-        
+        trading_tool(action="cancel_order", account_id="G...", offer_id="12345")
+
         # Get open orders
-        trading_tool(action="orders", account_id="G...")
-    
+        trading_tool(action="get_orders", account_id="G...")
+
     Returns:
-        {"success": bool, "hash": "...", "ledger": 123, ...}
+        {"success": bool, "hash": "...", "ledger": 123, "market_execution": {...}}
     """
     return trading(
         action=action,
         account_id=account_id,
         key_manager=keys,
         horizon=horizon,
-        base_asset=base_asset,
-        quote_asset=quote_asset,
-        quote_issuer=quote_issuer,
+        buying_asset=buying_asset,
+        selling_asset=selling_asset,
+        buying_issuer=buying_issuer,
+        selling_issuer=selling_issuer,
         amount=amount,
         price=price,
+        order_type=order_type,
         offer_id=offer_id,
         auto_sign=auto_sign
     )

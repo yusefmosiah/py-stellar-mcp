@@ -257,13 +257,14 @@ print("Test 8: Placing limit buy order (Account A: Buy 10 USDC at 0.50 XLM/USDC)
 print("   (v2 composite tool - 1 call instead of 3)")
 try:
     result = trading(
-        action="limit_buy",
+        action="buy",
+        order_type="limit",
         account_id=account_a,
         key_manager=keys,
         horizon=horizon,
-        base_asset="XLM",
-        quote_asset="USDC",
-        quote_issuer=USDC_ISSUER,
+        buying_asset="USDC",
+        selling_asset="XLM",
+        buying_issuer=USDC_ISSUER,
         amount="10",
         price="0.50",
         auto_sign=True
@@ -284,13 +285,14 @@ print("Test 9: Placing limit buy order (Account B: Buy 200 USDC with 100 XLM at 
 print("   (v2 composite tool - 1 call instead of 3)")
 try:
     result = trading(
-        action="limit_buy",
+        action="buy",
+        order_type="limit",
         account_id=account_b,
         key_manager=keys,
         horizon=horizon,
-        base_asset="XLM",
-        quote_asset="USDC",
-        quote_issuer=USDC_ISSUER,
+        buying_asset="USDC",
+        selling_asset="XLM",
+        buying_issuer=USDC_ISSUER,
         amount="200",
         price="0.5",
         auto_sign=True
@@ -309,7 +311,7 @@ except Exception as e:
 # Test 10: Check Open Orders for Account A
 print("Test 10: Checking open orders for Account A...")
 try:
-    result = trading(action="orders", account_id=account_a, key_manager=keys, horizon=horizon)
+    result = trading(action="get_orders", account_id=account_a, key_manager=keys, horizon=horizon)
     if "error" in result:
         add_test_result("Check Open Orders A", False, None, result["error"])
     else:
@@ -325,7 +327,7 @@ except Exception as e:
 # Test 11: Check Open Orders for Account B
 print("Test 11: Checking open orders for Account B...")
 try:
-    result = trading(action="orders", account_id=account_b, key_manager=keys, horizon=horizon)
+    result = trading(action="get_orders", account_id=account_b, key_manager=keys, horizon=horizon)
     if "error" in result:
         add_test_result("Check Open Orders B", False, None, result["error"])
     else:
@@ -343,7 +345,7 @@ print("Test 12: Canceling order from Account A...")
 if "offer_id_a" in report:
     try:
         result = trading(
-            action="cancel",
+            action="cancel_order",
             account_id=account_a,
             offer_id=str(report["offer_id_a"]),
             key_manager=keys,
@@ -368,7 +370,7 @@ print("Test 13: Canceling order from Account B...")
 if "offer_id_b" in report:
     try:
         result = trading(
-            action="cancel",
+            action="cancel_order",
             account_id=account_b,
             offer_id=str(report["offer_id_b"]),
             key_manager=keys,
@@ -391,8 +393,8 @@ else:
 # Test 14: Verify Orders Cancelled
 print("Test 14: Verifying orders cancelled...")
 try:
-    result_a = trading(action="orders", account_id=account_a, key_manager=keys, horizon=horizon)
-    result_b = trading(action="orders", account_id=account_b, key_manager=keys, horizon=horizon)
+    result_a = trading(action="get_orders", account_id=account_a, key_manager=keys, horizon=horizon)
+    result_b = trading(action="get_orders", account_id=account_b, key_manager=keys, horizon=horizon)
 
     orders_a = len(result_a.get("offers", []))
     orders_b = len(result_b.get("offers", []))
@@ -440,13 +442,14 @@ try:
 
         # v2 SINGLE CALL with auto-signing (vs v1: 3 separate calls)
         result = trading(
-            action="market_buy",
+            action="buy",
+            order_type="market",
             account_id=account_a,
             key_manager=keys,
             horizon=horizon,
-            base_asset="XLM",
-            quote_asset="USDC",
-            quote_issuer=USDC_ISSUER,
+            buying_asset="USDC",
+            selling_asset="XLM",
+            buying_issuer=USDC_ISSUER,
             amount=str(buy_amount),
             auto_sign=True
         )

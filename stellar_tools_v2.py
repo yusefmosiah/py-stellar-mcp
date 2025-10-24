@@ -37,10 +37,13 @@ def _calculate_market_fill(
     """
     Calculate market order fill details from orderbook data.
 
+    This function works with orderbook(base, quote) semantics internally.
+    The 'side' parameter indicates whether you're buying or selling the quote asset.
+
     Args:
-        orderbook: Result from market_data(action="orderbook")
-        amount: Amount to trade (quote asset for buy, base for sell)
-        side: "buy" or "sell"
+        orderbook: Result from market_data(action="orderbook") for orderbook(base, quote)
+        amount: Amount to trade (quote asset amount for side="buy", quote asset amount for side="sell")
+        side: "buy" = buying quote asset with base; "sell" = selling quote asset for base
         max_slippage: Maximum allowed slippage (0.05 = 5%)
 
     Returns:
@@ -58,12 +61,10 @@ def _calculate_market_fill(
         }
     """
     try:
-        # Get appropriate side
-        # NOTE: In orderbook(base, quote) like orderbook(XLM, USDC):
-        #   - bids = people buying base (XLM), selling quote (USDC)
-        #   - asks = people selling base (XLM), buying quote (USDC)
-        # To BUY quote (USDC): sell base (XLM) → use BIDS
-        # To SELL quote (USDC): buy base (XLM) → use ASKS
+        # Get appropriate orderbook side
+        # For orderbook(base, quote):
+        #   - bids: offers to buy base (sell quote) - use these when we want to buy quote
+        #   - asks: offers to sell base (buy quote) - use these when we want to sell quote
         levels = orderbook.get("bids" if side == "buy" else "asks", [])
 
         if not levels:
@@ -380,45 +381,60 @@ def trading(
     account_id: str,
     key_manager: KeyManager,
     horizon: Server,
-    base_asset: str = "XLM",
-    quote_asset: Optional[str] = None,
-    quote_issuer: Optional[str] = None,
+    buying_asset: Optional[str] = None,
+    selling_asset: Optional[str] = None,
+    buying_issuer: Optional[str] = None,
+    selling_issuer: Optional[str] = None,
     amount: Optional[str] = None,
     price: Optional[str] = None,
+    order_type: str = "limit",
     offer_id: Optional[str] = None,
     max_slippage: float = 0.05,
     auto_sign: bool = True
 ) -> Dict[str, Any]:
     """
-    Unified SDEX trading tool with orderbook-aware market orders.
+    Unified SDEX trading tool with intuitive buying/selling semantics.
 
     Actions:
-        - "market_buy": Buy quote asset at market price (orderbook-aware)
-        - "market_sell": Sell quote asset at market price (orderbook-aware)
-        - "limit_buy": Place limit buy order
-        - "limit_sell": Place limit sell order
-        - "cancel": Cancel open order
-        - "orders": Get open orders
+        - "buy": Acquire buying_asset by spending selling_asset
+        - "sell": Give up selling_asset to acquire buying_asset
+        - "cancel_order": Cancel an open order
+        - "get_orders": Get all open orders
 
     Args:
-        action: Trading operation
+        action: Trading operation ("buy", "sell", "cancel_order", "get_orders")
         account_id: Stellar public key
         key_manager: KeyManager instance
         horizon: Horizon server instance
-        base_asset: Base asset code (default: "XLM" for native)
-        quote_asset: Quote asset code (e.g., "USDC")
-        quote_issuer: Quote asset issuer (required if quote_asset != "XLM")
-        amount: Amount to buy/sell (decimal string)
-        price: Price per unit (for limit orders)
-        offer_id: Offer ID (for cancel action)
+        buying_asset: Asset you want to acquire (e.g., "USDC")
+        selling_asset: Asset you're spending (e.g., "XLM")
+        buying_issuer: Issuer of buying_asset (required if buying_asset != "XLM")
+        selling_issuer: Issuer of selling_asset (required if selling_asset != "XLM")
+        amount: For buy: amount of buying_asset to acquire; For sell: amount of selling_asset to spend
+        price: Price (for limit orders). For buy: selling_asset per buying_asset. For sell: buying_asset per selling_asset
+        order_type: "limit" or "market" (default: "limit")
+        offer_id: Offer ID (for cancel_order action)
         max_slippage: Maximum slippage tolerance for market orders (default: 0.05 = 5%)
         auto_sign: Auto-sign and submit (default: True)
 
     Returns:
         {"success": bool, "hash": "...", "ledger": 123, "market_execution": {...}}
+
+    Examples:
+        # Buy 4 USDC by spending XLM at market price:
+        trading(action="buy", buying_asset="USDC", selling_asset="XLM",
+                amount="4", order_type="market", ...)
+
+        # Place limit order to buy 4 USDC, willing to pay 15 XLM per USDC:
+        trading(action="buy", buying_asset="USDC", selling_asset="XLM",
+                amount="4", price="15", order_type="limit", ...)
+
+        # Sell 100 XLM for USDC, wanting 0.01 USDC per XLM:
+        trading(action="sell", selling_asset="XLM", buying_asset="USDC",
+                amount="100", price="0.01", order_type="limit", ...)
     """
     try:
-        if action == "orders":
+        if action == "get_orders":
             # Get open orders
             offers = horizon.offers().for_account(account_id).call()
             return {
@@ -435,19 +451,19 @@ def trading(
                 ],
                 "count": len(offers["_embedded"]["records"])
             }
-        
-        elif action == "cancel":
+
+        elif action == "cancel_order":
             if not offer_id:
-                return {"error": "offer_id required for 'cancel' action"}
-            
+                return {"error": "offer_id required for 'cancel_order' action"}
+
             # Get offer details
             offer = horizon.offers().offer(offer_id).call()
-            
+
             selling = Asset(offer["selling"]["asset_code"], offer["selling"]["asset_issuer"]) \
                 if offer["selling"]["asset_type"] != "native" else Asset.native()
             buying = Asset(offer["buying"]["asset_code"], offer["buying"]["asset_issuer"]) \
                 if offer["buying"]["asset_type"] != "native" else Asset.native()
-            
+
             def cancel_op(builder):
                 builder.append_manage_sell_offer_op(
                     selling=selling,
@@ -456,75 +472,99 @@ def trading(
                     price=offer["price"],
                     offer_id=int(offer_id)
                 )
-            
+
             result = _build_sign_submit(account_id, [cancel_op], key_manager, horizon, auto_sign)
             if result.get("success"):
                 result["message"] = f"Order {offer_id} cancelled successfully"
             return result
-        
-        elif action in ["market_buy", "market_sell"]:
-            # Orderbook-aware market orders
-            if not quote_asset:
-                return {"error": "quote_asset required for trading actions"}
+
+        elif action in ["buy", "sell"]:
+            # Validate inputs
+            if not buying_asset or not selling_asset:
+                return {"error": "Both buying_asset and selling_asset required for trading"}
             if not amount:
-                return {"error": "amount required for trading actions"}
+                return {"error": "amount required for trading"}
+            if order_type == "limit" and not price:
+                return {"error": "price required for limit orders"}
 
-            # STEP 1: Query orderbook
-            orderbook_result = market_data(
-                action="orderbook",
-                horizon=horizon,
-                base_asset=base_asset,
-                quote_asset=quote_asset,
-                quote_issuer=quote_issuer,
-                limit=20  # Get top 20 levels for depth analysis
-            )
+            # Build asset objects
+            buying = _dict_to_asset(buying_asset, buying_issuer)
+            selling = _dict_to_asset(selling_asset, selling_issuer)
 
-            if "error" in orderbook_result:
-                return {
-                    "error": f"Failed to fetch orderbook: {orderbook_result['error']}"
-                }
+            # Determine orderbook orientation for market orders
+            # Convention: XLM is base when paired with issued assets
+            if order_type == "market":
+                # Determine base and quote for orderbook query
+                if selling_asset.upper() == "XLM":
+                    base_asset = selling_asset
+                    quote_asset = buying_asset
+                    quote_issuer_val = buying_issuer
+                    # User wants to buy quote (buying_asset) by selling base (selling_asset)
+                    orderbook_side = "buy"
+                elif buying_asset.upper() == "XLM":
+                    base_asset = buying_asset
+                    quote_asset = selling_asset
+                    quote_issuer_val = selling_issuer
+                    # User wants to sell quote (selling_asset) to get base (buying_asset)
+                    orderbook_side = "sell"
+                else:
+                    # Both are issued assets - use alphabetical order
+                    if buying_asset < selling_asset:
+                        base_asset = buying_asset
+                        quote_asset = selling_asset
+                        quote_issuer_val = selling_issuer
+                        orderbook_side = "sell"
+                    else:
+                        base_asset = selling_asset
+                        quote_asset = buying_asset
+                        quote_issuer_val = buying_issuer
+                        orderbook_side = "buy"
 
-            # STEP 2: Calculate fill strategy
-            side = "buy" if action == "market_buy" else "sell"
-            fill_calc = _calculate_market_fill(
-                orderbook=orderbook_result,
-                amount=amount,
-                side=side,
-                max_slippage=max_slippage
-            )
+                # STEP 1: Query orderbook
+                orderbook_result = market_data(
+                    action="orderbook",
+                    horizon=horizon,
+                    base_asset=base_asset,
+                    quote_asset=quote_asset,
+                    quote_issuer=quote_issuer_val,
+                    limit=20
+                )
 
-            if not fill_calc.get("feasible"):
-                return {
-                    "success": False,
-                    "error": fill_calc.get("error"),
-                    "market_data": fill_calc  # Return diagnostic info
-                }
+                if "error" in orderbook_result:
+                    return {"error": f"Failed to fetch orderbook: {orderbook_result['error']}"}
 
-            # STEP 3: Build order with calculated price
-            base = _dict_to_asset(base_asset)
-            quote = _dict_to_asset(quote_asset, quote_issuer)
+                # STEP 2: Calculate fill strategy
+                fill_calc = _calculate_market_fill(
+                    orderbook=orderbook_result,
+                    amount=amount,
+                    side=orderbook_side,
+                    max_slippage=max_slippage
+                )
 
-            if action == "market_buy":
-                selling = base
-                buying = quote
+                if not fill_calc.get("feasible"):
+                    return {
+                        "success": False,
+                        "error": fill_calc.get("error"),
+                        "market_data": fill_calc
+                    }
+
                 price_value = fill_calc["execution_price"]
-                op_type = "buy"
-            else:  # market_sell
-                selling = quote
-                buying = base
-                price_value = fill_calc["execution_price"]
-                op_type = "sell"
+            else:
+                # Limit order - use user-provided price
+                price_value = price
 
-            # STEP 4: Execute transaction
+            # STEP 3: Execute transaction
+            # For action="buy": use manage_buy_offer (amount is buying_asset amount)
+            # For action="sell": use manage_sell_offer (amount is selling_asset amount)
             def trade_op(builder):
-                if op_type == "buy":
+                if action == "buy":
                     builder.append_manage_buy_offer_op(
                         selling=selling,
                         buying=buying,
                         amount=amount,
                         price=price_value
                     )
-                else:
+                else:  # action == "sell"
                     builder.append_manage_sell_offer_op(
                         selling=selling,
                         buying=buying,
@@ -534,8 +574,8 @@ def trading(
 
             result = _build_sign_submit(account_id, [trade_op], key_manager, horizon, auto_sign)
 
-            # Add market execution details to result
-            if result.get("success"):
+            # Add market execution details for market orders
+            if result.get("success") and order_type == "market":
                 result["market_execution"] = {
                     "requested_amount": amount,
                     "expected_average_price": fill_calc["average_price"],
@@ -548,54 +588,10 @@ def trading(
 
             return result
 
-        elif action in ["limit_buy", "limit_sell"]:
-            # Traditional limit orders
-            if not quote_asset:
-                return {"error": "quote_asset required for trading actions"}
-            if not amount:
-                return {"error": "amount required for trading actions"}
-            if not price:
-                return {"error": "price required for limit orders"}
-
-            # Build assets
-            base = _dict_to_asset(base_asset)
-            quote = _dict_to_asset(quote_asset, quote_issuer)
-
-            # Determine operation parameters
-            if action == "limit_buy":
-                selling = base
-                buying = quote
-                price_value = price
-                op_type = "buy"
-            else:  # limit_sell
-                selling = quote
-                buying = base
-                price_value = price
-                op_type = "sell"
-
-            # Create operation
-            def trade_op(builder):
-                if op_type == "buy":
-                    builder.append_manage_buy_offer_op(
-                        selling=selling,
-                        buying=buying,
-                        amount=amount,
-                        price=price_value
-                    )
-                else:
-                    builder.append_manage_sell_offer_op(
-                        selling=selling,
-                        buying=buying,
-                        amount=amount,
-                        price=price_value
-                    )
-
-            return _build_sign_submit(account_id, [trade_op], key_manager, horizon, auto_sign)
-        
         else:
             return {
                 "error": f"Unknown action: {action}",
-                "valid_actions": ["market_buy", "market_sell", "limit_buy", "limit_sell", "cancel", "orders"]
+                "valid_actions": ["buy", "sell", "cancel_order", "get_orders"]
             }
     
     except Exception as e:

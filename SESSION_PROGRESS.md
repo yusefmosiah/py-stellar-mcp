@@ -183,27 +183,140 @@ Latest successful run: `test_reports/sdex_trading_v2_report_20251023_190538.md`
 
 ---
 
-## Next: Semantic Refactoring Plan
+## 9. Semantic Refactoring Complete ✅
 
-### Goals
-1. Make trading API intuitive for LLM agents and users
-2. Remove base/quote mental model requirement
-3. Make buy/sell operations explicit
-4. Maintain backward compatibility or provide migration path
+**Date:** 2025-10-23 (after context compaction)
 
-### Approach
-- Create `trading_v3()` with explicit buy/sell semantics
-- Update internal logic to translate user intent → Stellar operations
-- Add clear documentation and examples
-- Update MCP tool descriptions for Claude
-- Test with real market orders
+### Problem Solved
+The old API was confusing because it used base/quote terminology that required understanding orderbook internals:
+```python
+# Old (confusing):
+trading(action="limit_buy", base_asset="XLM", quote_asset="USDC",
+        amount="4", price="15")  # 4 of what? Price means what?
+```
 
-### Success Criteria
-- LLM can correctly place orders without confusion
-- Users can read code and understand intent immediately
-- No need to understand orderbook internals to trade
-- All existing tests still pass
+### New API: Explicit Buying/Selling Semantics
+
+**Matches Stellar's Native Design Philosophy:**
+- Stellar SDK has separate `manage_buy_offer` and `manage_sell_offer`
+- Both specify explicit `buying_asset` and `selling_asset`
+- Our API now mirrors this intuitive approach
+
+**New API Signature:**
+```python
+trading(
+    action: str,  # "buy", "sell", "cancel_order", "get_orders"
+    buying_asset: str,
+    selling_asset: str,
+    buying_issuer: Optional[str] = None,
+    selling_issuer: Optional[str] = None,
+    amount: str,  # Interpreted based on action
+    price: Optional[str] = None,  # For limit orders
+    order_type: str = "limit",  # "limit" or "market"
+    ...
+)
+```
+
+### Clear Examples
+
+**Buy USDC with XLM (Market Order):**
+```python
+trading(action="buy", order_type="market",
+        buying_asset="USDC", selling_asset="XLM",
+        buying_issuer=USDC_ISSUER, amount="0.02")
+# Clear: Buy 0.02 USDC at market price using XLM
+```
+
+**Buy USDC with XLM (Limit Order):**
+```python
+trading(action="buy", order_type="limit",
+        buying_asset="USDC", selling_asset="XLM",
+        buying_issuer=USDC_ISSUER, amount="4", price="15")
+# Clear: Buy 4 USDC, willing to pay 15 XLM per USDC
+```
+
+**Sell XLM for USDC (Limit Order):**
+```python
+trading(action="sell", order_type="limit",
+        selling_asset="XLM", buying_asset="USDC",
+        buying_issuer=USDC_ISSUER, amount="100", price="0.01")
+# Clear: Sell 100 XLM, want 0.01 USDC per XLM
+```
+
+### Implementation Details
+
+1. **Internal Translation Layer:**
+   - User provides buying/selling semantics
+   - Code determines orderbook orientation (XLM is base when paired with issued assets)
+   - Queries appropriate orderbook for market orders
+   - Translates to correct Stellar operations (ManageBuyOffer or ManageSellOffer)
+
+2. **Amount Interpretation:**
+   - For `action="buy"`: amount = quantity of buying_asset to acquire
+   - For `action="sell"`: amount = quantity of selling_asset to give up
+
+3. **Price Interpretation:**
+   - For `action="buy"`: price = selling_asset per buying_asset
+   - For `action="sell"`: price = buying_asset per selling_asset
+
+### Test Results
+
+✅ **All 15/15 tests passed** with new API
+- Account creation and funding
+- Trustline establishment
+- Orderbook queries
+- Limit buy orders with new semantics
+- Order cancellation
+- **Real market buy executed:** 0.02 USDC at 50 XLM/USDC
+
+**Test report:** `test_reports/sdex_trading_v2_report_20251023_194356.md`
+
+### Files Modified
+
+1. **stellar_tools_v2.py:**
+   - Refactored `trading()` function signature and implementation
+   - Updated `_calculate_market_fill()` comments for clarity
+   - Internal orderbook orientation logic for market orders
+
+2. **test_sdex_trading_v2.py:**
+   - Updated all trading() calls to new semantics
+   - Changed actions: `market_buy` → `buy` with `order_type="market"`
+   - Changed actions: `limit_buy` → `buy` with `order_type="limit"`
+   - Changed actions: `orders` → `get_orders`
+   - Changed actions: `cancel` → `cancel_order`
+
+3. **server_v2.py:**
+   - Updated `trading_tool()` MCP description
+   - Clear examples for LLM agents (Claude)
+   - Explicit buying/selling terminology throughout
+
+### Architecture Validation
+
+**Horizon vs RPC Research:**
+- ✅ Confirmed Horizon is the **correct API** for SDEX trading
+- Stellar RPC (Soroban) is for smart contracts, **cannot interact with SDEX**
+- No migration needed - our architecture is already optimal
+
+### Benefits Achieved
+
+✅ **Intuitive for users and LLMs:**
+- "Buy USDC with XLM" is expressed naturally
+- No need to understand base/quote orientation
+
+✅ **Matches Stellar's design:**
+- Uses same buying/selling concepts as native SDK
+- Respects Stellar's separation of buy vs sell offers
+
+✅ **Maintains full control:**
+- All limit order functionality preserved
+- Market order logic unchanged
+- Price and amount semantics clear
+
+✅ **Zero test failures:**
+- Backward breaking changes acceptable (prototype)
+- All 15/15 tests pass immediately
 
 ---
 
-*Session snapshot captured: 2025-10-23 19:20*
+*Refactoring completed: 2025-10-23 19:43*
+*Status: Production-ready semantics*
