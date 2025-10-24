@@ -1,6 +1,6 @@
 """
-SDEX Trading Integration Tests for Stellar MCP Server v2 (Composite Tools)
-Tests orderbook queries, order placement, and order management using v2 composite tools
+SDEX Trading Integration Tests for Stellar MCP Server
+Tests orderbook queries, order placement, and order management
 Showcases the 1-call market order feature (was 3 calls in v1)
 Generates detailed markdown report of results
 """
@@ -8,7 +8,7 @@ Generates detailed markdown report of results
 from datetime import datetime
 from stellar_sdk import Server
 from key_manager import KeyManager
-from stellar_tools_v2 import (
+from stellar_tools import (
     account_manager,
     trading,
     trustline_manager,
@@ -27,7 +27,7 @@ keys = KeyManager()
 # Report data structure
 report = {
     "timestamp": datetime.now().isoformat(),
-    "test_name": "SDEX Trading Integration Tests (v2 Composite Tools)",
+    "test_name": "SDEX Trading Integration Tests",
     "results": [],
     "accounts": {},
     "summary": {"passed": 0, "failed": 0, "total": 0}
@@ -59,14 +59,14 @@ def add_test_result(test_name, passed, details, error=None):
 def generate_markdown_report():
     """Generate markdown report file"""
     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"test_reports/sdex_trading_v2_report_{timestamp_str}.md"
+    filename = f"test_reports/sdex_trading_report_{timestamp_str}.md"
 
     # Ensure directory exists
     import os
     os.makedirs("test_reports", exist_ok=True)
 
     md = []
-    md.append("# SDEX Trading Integration Test Report (v2 Composite Tools)")
+    md.append("# SDEX Trading Integration Test Report")
     md.append(f"\n**Test Run:** {report['timestamp']}")
     md.append(f"\n**Network:** Stellar Testnet")
     md.append(f"\n**Horizon:** {HORIZON_URL}")

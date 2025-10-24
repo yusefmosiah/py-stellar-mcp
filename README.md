@@ -1,22 +1,22 @@
-# Stellar Python MCP Server v2
+# Stellar Python MCP Server
 
 A **Model Context Protocol (MCP)** server that exposes Stellar blockchain operations as intuitive composite tools for AI agents and LLMs. Built with FastMCP and Stellar SDK for testnet trading and account management.
 
-**v2.0 Features:**
+**Key Features:**
 - 🎯 **Intuitive buying/selling semantics** - Natural language API for LLMs
-- 🚀 **70% fewer tool calls** - 5 composite tools instead of 17 individual tools
-- 🔒 **Persistent key storage** - File-based keypair management
-- ⚡ **Single-call operations** - Built-in auto-signing reduces workflow complexity
+- 🚀 **Composite tools** - 5 consolidated tools instead of many individual operations
+- 🔒 **Persistent key storage** - File-based keypair management that survives restarts
+- ⚡ **Single-call operations** - Built-in auto-signing reduces complexity
 
 ---
 
 ## Features
 
 - **Account Management**: Create, fund, and query Stellar testnet accounts
-- **Persistent Key Storage**: File-based keypair management that survives restarts
+- **Persistent Key Storage**: Secure file-based keypair management
 - **SDEX Trading**: Intuitive buy/sell API with explicit asset semantics
 - **Trustline Management**: Establish and remove trustlines for issued assets
-- **Composite Tools**: 70% reduction in MCP overhead with consolidated operations
+- **Composite Tools**: Consolidated operations reduce MCP overhead by ~70%
 - **MCP Compliant**: Full tool registration and discovery support
 
 ---
@@ -45,7 +45,7 @@ HORIZON_URL=https://horizon-testnet.stellar.org
 ### 3. Run Server
 
 ```bash
-python server_v2.py
+python server.py
 ```
 
 The MCP server will start and expose 5 composite Stellar tools for agent connections.
@@ -88,7 +88,7 @@ account_manager_tool(action="import", secret_key="S...")
 
 **6 operations in 1 tool:** buy (market/limit), sell (market/limit), cancel_order, get_orders
 
-**Key Innovation:** Explicit buying/selling semantics that match user intent
+**Key Design:** Explicit buying/selling semantics that match user intent
 
 ```python
 # Market buy: Buy 4 USDC by spending XLM
@@ -158,7 +158,7 @@ trustline_manager_tool(
 
 ### 4. Market Data (`market_data_tool`)
 
-**2 operations in 1 tool:** orderbook
+**2 operations in 1 tool:** orderbook queries
 
 ```python
 # Get USDC/XLM orderbook
@@ -286,16 +286,16 @@ if orders["offers"]:
 ┌──────────────────────┐
 │  AI Agent / LLM      │ ← Strategy, decision-making
 └──────────┬───────────┘
-           │ MCP Protocol (5 composite tools)
+           │ MCP Protocol
            ↓
 ┌──────────────────────┐
 │  FastMCP Server      │ ← Tool registration
-│  (server_v2.py)      │
+│  (server.py)         │
 └──────────┬───────────┘
            │
 ┌──────────┴───────────┐
-│  Composite Tools     │ ← 1-2 calls per workflow
-│  (stellar_tools_v2)  │
+│  Composite Tools     │ ← Consolidated operations
+│  (stellar_tools)     │
 └──────────┬───────────┘
            │
 ┌──────────┴───────────┐
@@ -313,21 +313,21 @@ if orders["offers"]:
 └──────────────────────┘
 ```
 
-### Key Design Principles
+### Design Principles
 
 1. **Intuitive Semantics**: Buying/selling API matches user mental model
-2. **Composite Tools**: 70% reduction in MCP calls (17 tools → 5 tools)
+2. **Composite Tools**: Consolidated operations reduce MCP call overhead
 3. **Secure Key Management**: File-based persistence with 600 permissions
 4. **Single-Call Operations**: Built-in auto-signing simplifies workflows
 5. **Testnet Only**: Safe for hackathons and development
 
 ---
 
-## v2 API Semantics
+## API Semantics
 
 ### Buying/Selling Intent
 
-v2 uses **explicit buying/selling semantics** that match how humans think about trading:
+The trading API uses **explicit buying/selling semantics** that match how humans think about trading:
 
 ```python
 # ✅ Clear: "I want to buy 4 USDC by spending XLM"
@@ -359,7 +359,7 @@ trading_tool(
 - **For `action="buy"`**: `price` = `selling_asset` per `buying_asset`
 - **For `action="sell"`**: `price` = `buying_asset` per `selling_asset`
 
-### Why This Design?
+### Design Rationale
 
 1. **Matches Stellar SDK**: Uses same buying/selling concepts as native `manage_buy_offer` and `manage_sell_offer`
 2. **Intuitive for LLMs**: Natural language expressions like "Buy 4 USDC with XLM"
@@ -378,34 +378,6 @@ Faucet: https://stellar.org/faucet (web-based, rate-limited)
 ```
 
 **Note**: Testnet USDC is scarce. Use web faucet to acquire small amounts for testing.
-
----
-
-## Workflow Simplification
-
-### v1 (old): 3-5 MCP calls per operation
-
-```python
-# OLD: Build → Sign → Submit pattern
-xdr = build_order_transaction_tool(...)  # Call 1
-signed = sign_transaction_tool(...)      # Call 2
-result = submit_transaction_tool(...)    # Call 3
-```
-
-### v2 (new): 1-2 MCP calls per operation
-
-```python
-# NEW: Single composite call with auto-signing
-result = trading_tool(
-    action="buy",
-    order_type="limit",
-    ...,
-    auto_sign=True  # Default
-)
-# ✅ Done in one call!
-```
-
-**Token savings**: ~70% reduction in MCP overhead
 
 ---
 
@@ -435,7 +407,7 @@ All tools return structured responses:
 
 ## Security Considerations
 
-### Current Implementation (v2)
+### Current Implementation
 - ✅ File-based keypair storage (`.stellar_keystore.json`)
 - ✅ Secure permissions (600 - owner read/write only)
 - ✅ Testnet only (no real funds at risk)
@@ -456,11 +428,11 @@ All tools return structured responses:
 ### Project Structure
 ```
 py-stellar-mcp/
-├── server_v2.py              # FastMCP entry point (v2)
-├── stellar_tools_v2.py       # Composite tool implementations
+├── server.py                 # FastMCP entry point
+├── stellar_tools.py          # Composite tool implementations
 ├── key_manager.py            # Persistent keypair storage
-├── test_basic_v2.py          # Basic integration tests
-├── test_sdex_trading_v2.py   # SDEX trading tests (15/15 passing)
+├── test_basic.py             # Basic integration tests
+├── test_sdex_trading.py      # SDEX trading tests (15/15 passing)
 ├── requirements.txt          # Dependencies
 ├── .env                      # Configuration (git-ignored)
 ├── .stellar_keystore.json    # Keypair storage (git-ignored)
@@ -472,10 +444,10 @@ py-stellar-mcp/
 
 ### Adding New Actions
 
-Add to existing composite tools:
+Extend existing composite tools:
 
 ```python
-# In stellar_tools_v2.py
+# In stellar_tools.py
 def trading(action, account_id, ...):
     if action == "my_new_action":
         # Your implementation
@@ -496,10 +468,10 @@ No need to register new MCP tools - just extend composite functions!
 source .venv/bin/activate
 
 # Run SDEX trading tests (15 tests)
-python test_sdex_trading_v2.py
+python test_sdex_trading.py
 
 # Run basic tests
-python test_basic_v2.py
+python test_basic.py
 ```
 
 ### Test Reports
@@ -541,33 +513,6 @@ Timestamped markdown reports are generated in `test_reports/`:
 
 ---
 
-## Migration from v1
-
-### Update Configuration
-
-Change Claude Code MCP config:
-```json
-{
-  "mcpServers": {
-    "stellar": {
-      "command": "/path/to/.venv/bin/python",
-      "args": ["/path/to/server_v2.py"]  // Changed from server.py
-    }
-  }
-}
-```
-
-### Update API Calls
-
-See CHANGELOG.md for detailed migration guide. Key changes:
-- Actions: `market_buy` → `buy` with `order_type="market"`
-- Actions: `limit_buy` → `buy` with `order_type="limit"`
-- Actions: `orders` → `get_orders`
-- Actions: `cancel` → `cancel_order`
-- Parameters: `base_asset/quote_asset` → `buying_asset/selling_asset`
-
----
-
 ## Resources
 
 - **Stellar Developers**: https://developers.stellar.org
@@ -583,7 +528,7 @@ See CHANGELOG.md for detailed migration guide. Key changes:
 ## Contributing
 
 This is a hackathon project evolving toward production use. For enhancements:
-1. ✅ Persistent keypair storage (implemented in v2)
+1. ✅ Persistent keypair storage (implemented)
 2. Add comprehensive error codes
 3. Implement rate limiting
 4. Add authentication
@@ -605,7 +550,7 @@ Built with:
 - **Stellar SDK** - Blockchain operations
 - **Stellar Network** - Decentralized exchange
 
-v2 semantic refactoring inspired by Stellar's native SDK design patterns.
+Trading API design inspired by Stellar's native SDK patterns.
 
 ---
 
@@ -618,4 +563,4 @@ For issues or questions:
 
 ---
 
-**Ready to build AI-powered Stellar trading agents with intuitive semantics!** 🚀
+**Ready to build AI-powered Stellar trading agents!** 🚀

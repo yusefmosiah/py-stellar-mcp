@@ -1,6 +1,6 @@
-# SDEX Trading Integration Test Report (v2 Composite Tools)
+# SDEX Trading Integration Test Report
 
-**Test Run:** 2025-10-23T19:43:11.185698
+**Test Run:** 2025-10-23T20:50:38.904388
 
 **Network:** Stellar Testnet
 
@@ -32,12 +32,12 @@
 ## Test Accounts
 
 ### Account A (Buyer)
-- **Account ID:** `GC5QGNNC5GVGTY3IXRRWAWCBOSDBUPQFMS7WA523DB6SJTQUGCYLRTVZ`
-- **Explorer:** [View on Stellar Expert](https://stellar.expert/explorer/testnet/account/GC5QGNNC5GVGTY3IXRRWAWCBOSDBUPQFMS7WA523DB6SJTQUGCYLRTVZ)
+- **Account ID:** `GD5EUOYTHITVHPKNFTMBQN3KGJLN4PBDC42MLXYN63QHQWVXVBLPZKF4`
+- **Explorer:** [View on Stellar Expert](https://stellar.expert/explorer/testnet/account/GD5EUOYTHITVHPKNFTMBQN3KGJLN4PBDC42MLXYN63QHQWVXVBLPZKF4)
 
 ### Account B (Seller)
-- **Account ID:** `GCZ4I76ENJE24CRHOO7YURJTMHWH3FRMMHZCZDBYYKD7WY56NP3LI2HO`
-- **Explorer:** [View on Stellar Expert](https://stellar.expert/explorer/testnet/account/GCZ4I76ENJE24CRHOO7YURJTMHWH3FRMMHZCZDBYYKD7WY56NP3LI2HO)
+- **Account ID:** `GCTWTSRD4PWZBIJWVK6KMV6SGHL6OCXNRQV2TTML3MWKHDQPCXJHM2CG`
+- **Explorer:** [View on Stellar Expert](https://stellar.expert/explorer/testnet/account/GCTWTSRD4PWZBIJWVK6KMV6SGHL6OCXNRQV2TTML3MWKHDQPCXJHM2CG)
 
 ---
 
@@ -47,14 +47,14 @@
 
 **Status:** ✅ PASSED
 
-**Details:** Account ID: GC5QGNNC5GVGTY3IXRRWAWCBOSDBUPQFMS7WA523DB6SJTQUGCYLRTVZ
+**Details:** Account ID: GD5EUOYTHITVHPKNFTMBQN3KGJLN4PBDC42MLXYN63QHQWVXVBLPZKF4
 
 
 ### Test 2: Create Account B
 
 **Status:** ✅ PASSED
 
-**Details:** Account ID: GCZ4I76ENJE24CRHOO7YURJTMHWH3FRMMHZCZDBYYKD7WY56NP3LI2HO
+**Details:** Account ID: GCTWTSRD4PWZBIJWVK6KMV6SGHL6OCXNRQV2TTML3MWKHDQPCXJHM2CG
 
 
 ### Test 3: Fund Account A
@@ -75,35 +75,35 @@
 
 **Status:** ✅ PASSED
 
-**Details:** Hash: 1acf706aa1131435..., Ledger: 1212800
+**Details:** Hash: 219965d6808dd035..., Ledger: 1213609
 
 
 ### Test 6: Establish Trustline B
 
 **Status:** ✅ PASSED
 
-**Details:** Hash: 4f0a6da52084fe80..., Ledger: 1212801
+**Details:** Hash: 9feafc3b08e02449..., Ledger: 1213610
 
 
 ### Test 7: Query Orderbook
 
 **Status:** ✅ PASSED
 
-**Details:** Bids: 5, Asks: 10
+**Details:** Bids: 4, Asks: 10
 
 
 ### Test 8: Place Limit Buy Order
 
 **Status:** ✅ PASSED
 
-**Details:** Hash: a654d5b0d5b01d37..., Ledger: 1212802 [v2: 1 call vs v1: 3 calls]
+**Details:** Hash: 219740277b6ead6b..., Ledger: 1213611 [v2: 1 call vs v1: 3 calls]
 
 
 ### Test 9: Place Limit Buy Order
 
 **Status:** ✅ PASSED
 
-**Details:** Hash: 83a255a9b24aac7d..., Ledger: 1212803 [v2: 1 call vs v1: 3 calls]
+**Details:** Hash: 4ec106462baa1009..., Ledger: 1213612 [v2: 1 call vs v1: 3 calls]
 
 
 ### Test 10: Check Open Orders A
@@ -124,14 +124,14 @@
 
 **Status:** ✅ PASSED
 
-**Details:** Offer 14279 cancelled, Hash: 391a035fac9009dd...
+**Details:** Offer 14295 cancelled, Hash: f6eeb56612d9afcc...
 
 
 ### Test 13: Cancel Order B
 
 **Status:** ✅ PASSED
 
-**Details:** Offer 14280 cancelled, Hash: cb5cb3a99706de23...
+**Details:** Offer 14296 cancelled, Hash: 8db818b91e30303f...
 
 
 ### Test 14: Verify Cancellation
@@ -145,7 +145,7 @@
 
 **Status:** ✅ PASSED
 
-**Details:** ✨ REAL TRADE EXECUTED! Acquired 0.02 USDC at 50.00 XLM/USDC [v2: 1 call vs v1: 3 calls]
+**Details:** ✨ REAL TRADE EXECUTED! Acquired 0.02 USDC at 100.00 XLM/USDC [v2: 1 call vs v1: 3 calls]
 
 
 ---
@@ -153,7 +153,7 @@
 ## 🎉 Real Market Trade Executed!
 
 - **USDC Acquired:** 0.02
-- **Trade Price:** 50.0 XLM/USDC
+- **Trade Price:** 100.0 XLM/USDC
 - **Execution Method:** v2 single `trading_tool(action='market_buy')` call
 
 

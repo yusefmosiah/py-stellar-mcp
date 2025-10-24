@@ -1,5 +1,5 @@
 """
-Stellar Python MCP Server (v2 - Composite Tools)
+Stellar Python MCP Server
 FastMCP server with consolidated tools (17 → 5)
 """
 
@@ -9,7 +9,7 @@ from fastmcp import FastMCP
 from stellar_sdk import Server
 
 from key_manager import KeyManager
-from stellar_tools_v2 import (
+from stellar_tools import (
     account_manager,
     trading,
     trustline_manager,
@@ -25,13 +25,13 @@ HORIZON_URL = os.getenv("HORIZON_URL", "https://horizon-testnet.stellar.org")
 STELLAR_NETWORK = os.getenv("STELLAR_NETWORK", "testnet")
 
 # Initialize FastMCP server
-mcp = FastMCP("Stellar MCP Server v2")
+mcp = FastMCP("Stellar MCP Server")
 
 # Initialize Stellar SDK and KeyManager
 horizon = Server(HORIZON_URL)
 keys = KeyManager()
 
-print(f"🚀 Stellar MCP Server v2 (Composite Tools)")
+print(f"🚀 Stellar MCP Server (Composite Tools)")
 print(f"📡 Network: {STELLAR_NETWORK}")
 print(f"🌐 Horizon: {HORIZON_URL}")
 print(f"🔧 Tool count: 5 composite tools (was 17)")
@@ -298,7 +298,7 @@ if __name__ == "__main__":
     print("   4. market_data_tool (2 operations)")
     print("   5. utilities_tool (2 operations)")
     print()
-    print("📊 Token savings: ~70% reduction vs v1 (17 tools)")
+    print("📊 Token savings: ~70% reduction vs previous version (17 tools)")
     print("⚡ Workflow simplification: 1-2 calls vs 3-5 calls")
     print()
     print("✅ Starting MCP server...")
