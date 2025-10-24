@@ -23,6 +23,43 @@ A **Model Context Protocol (MCP)** server that exposes Stellar blockchain operat
 
 ## Quick Start
 
+### 0. Configure MCP Client
+
+Add to your MCP client configuration (e.g., Claude Desktop `~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+**Option A: Using `uv` (automatic dependency management)**
+```json
+{
+  "mcpServers": {
+    "stellar": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/ABSOLUTE/PATH/TO/py-stellar-mcp",
+        "run",
+        "server.py"
+      ]
+    }
+  }
+}
+```
+
+**Option B: Using Python directly (explicit control)**
+```json
+{
+  "mcpServers": {
+    "stellar": {
+      "command": "/ABSOLUTE/PATH/TO/py-stellar-mcp/.venv/bin/python",
+      "args": [
+        "/ABSOLUTE/PATH/TO/py-stellar-mcp/server.py"
+      ]
+    }
+  }
+}
+```
+
+**Important:** Replace `/ABSOLUTE/PATH/TO/py-stellar-mcp` with your actual project path.
+
 ### 1. Install Dependencies
 
 ```bash
@@ -42,13 +79,22 @@ STELLAR_NETWORK=testnet
 HORIZON_URL=https://horizon-testnet.stellar.org
 ```
 
-### 3. Run Server
+### 3. Test Server Locally (Optional)
 
+You can test the server directly before using it with an MCP client:
+
+**Option A: Using `uv`**
 ```bash
+uv run server.py
+```
+
+**Option B: Using Python directly**
+```bash
+source .venv/bin/activate
 python server.py
 ```
 
-The MCP server will start and expose 5 composite Stellar tools for agent connections.
+The MCP server will start and expose 5 composite Stellar tools. For production use, restart your MCP client (e.g., Claude Desktop) to load the server.
 
 ---
 
