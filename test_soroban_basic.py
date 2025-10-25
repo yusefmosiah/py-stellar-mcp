@@ -129,10 +129,10 @@ try:
         else:
             checks_failed.append("soroban_tool")
 
-        if 'SorobanServerAsync' in content:
-            checks_passed.append("SorobanServerAsync")
+        if 'create_soroban_client_with_ssl' in content or 'SorobanServerAsync' in content:
+            checks_passed.append("Soroban client initialization")
         else:
-            checks_failed.append("SorobanServerAsync")
+            checks_failed.append("Soroban client initialization")
 
         if 'soroban_operations' in content:
             checks_passed.append("soroban_operations")

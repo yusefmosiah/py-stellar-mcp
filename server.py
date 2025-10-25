@@ -8,8 +8,8 @@ import os
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from stellar_sdk import Server, Network
-from stellar_sdk.soroban_server_async import SorobanServerAsync
 
+from stellar_ssl import create_soroban_client_with_ssl
 from key_manager import KeyManager
 from stellar_tools import (
     account_manager,
@@ -34,7 +34,7 @@ mcp = FastMCP("Stellar MCP Server")
 
 # Initialize Stellar SDK and KeyManager
 horizon = Server(HORIZON_URL)
-soroban = SorobanServerAsync(SOROBAN_RPC_URL)
+soroban = create_soroban_client_with_ssl(SOROBAN_RPC_URL)
 keys = KeyManager()
 
 print(f"🚀 Stellar MCP Server (Composite Tools)")

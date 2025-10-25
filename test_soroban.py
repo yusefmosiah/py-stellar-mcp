@@ -7,8 +7,8 @@ Generates detailed markdown report of results
 import asyncio
 import os
 from datetime import datetime
-from stellar_sdk.soroban_server_async import SorobanServerAsync
 from stellar_sdk import Network
+from stellar_ssl import create_soroban_client_with_ssl
 from stellar_soroban import soroban_operations
 from key_manager import KeyManager
 
@@ -125,7 +125,7 @@ async def test_soroban_integration():
     # To test with a real contract, deploy one and update CONTRACT_ID.
     CONTRACT_ID = None  # Set to a valid contract ID if available
 
-    soroban = SorobanServerAsync(SOROBAN_RPC_URL)
+    soroban = create_soroban_client_with_ssl(SOROBAN_RPC_URL)
     keys = KeyManager()
 
     print("🧪 Testing Soroban operations...")
