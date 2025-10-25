@@ -1,10 +1,11 @@
 # Stellar Python MCP Server
 
-A **Model Context Protocol (MCP)** server that exposes Stellar blockchain operations as intuitive composite tools for AI agents and LLMs. Built with FastMCP and Stellar SDK for testnet trading and account management.
+A **Model Context Protocol (MCP)** server that exposes Stellar blockchain operations as intuitive composite tools for AI agents and LLMs. Built with FastMCP and Stellar SDK for testnet trading, account management, and smart contract interactions.
 
 **Key Features:**
 - 🎯 **Intuitive buying/selling semantics** - Natural language API for LLMs
-- 🚀 **Composite tools** - 5 consolidated tools instead of many individual operations
+- 🚀 **Composite tools** - 6 consolidated tools instead of many individual operations
+- 🔮 **Soroban smart contracts** - Full support for contract invocation, simulation, and events
 - 🔒 **Persistent key storage** - File-based keypair management that survives restarts
 - ⚡ **Single-call operations** - Built-in auto-signing reduces complexity
 
@@ -16,6 +17,7 @@ A **Model Context Protocol (MCP)** server that exposes Stellar blockchain operat
 - **Persistent Key Storage**: Secure file-based keypair management
 - **SDEX Trading**: Intuitive buy/sell API with explicit asset semantics
 - **Trustline Management**: Establish and remove trustlines for issued assets
+- **Soroban Smart Contracts**: Invoke, simulate, and query contract operations
 - **Composite Tools**: Consolidated operations reduce MCP overhead by ~70%
 - **MCP Compliant**: Full tool registration and discovery support
 
@@ -77,6 +79,10 @@ Create `.env` file:
 ```bash
 STELLAR_NETWORK=testnet
 HORIZON_URL=https://horizon-testnet.stellar.org
+SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
+
+# macOS Python 3.6+ SSL Fix (see Troubleshooting if needed)
+# SSL_CERT_FILE=/path/to/.venv/lib/pythonX.XX/site-packages/certifi/cacert.pem
 ```
 
 ### 3. Test Server Locally (Optional)
@@ -230,6 +236,73 @@ utilities_tool(action="status")
 utilities_tool(action="fee")
 ```
 
+### 6. Soroban Smart Contracts (`soroban_tool`)
+
+**4 operations in 1 tool:** get_data, simulate, invoke, get_events
+
+```python
+# Read contract storage data
+soroban_tool(
+    action="get_data",
+    contract_id="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+    key="counter",
+    durability="persistent"
+)
+
+# Simulate contract call (read-only, no fees)
+soroban_tool(
+    action="simulate",
+    contract_id="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+    function_name="get_balance",
+    parameters='[{"type": "address", "value": "GABC..."}]',
+    source_account="GABC..."
+)
+
+# Execute contract function (write to blockchain)
+soroban_tool(
+    action="invoke",
+    contract_id="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+    function_name="transfer",
+    parameters='[
+        {"type": "address", "value": "GFROM..."},
+        {"type": "address", "value": "GTO..."},
+        {"type": "int128", "value": 1000000}
+    ]',
+    source_account="GFROM...",
+    auto_sign=True
+)
+
+# Query contract events
+soroban_tool(
+    action="get_events",
+    contract_id="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+    start_ledger=1000000,
+    limit=50
+)
+```
+
+**Parameter Format:**
+Soroban parameters use JSON with explicit type tags:
+
+```json
+[
+    {"type": "address", "value": "GABC..."},
+    {"type": "uint32", "value": 1000},
+    {"type": "string", "value": "hello"},
+    {"type": "symbol", "value": "token_name"},
+    {"type": "vec", "value": [
+        {"type": "uint32", "value": 1},
+        {"type": "uint32", "value": 2}
+    ]}
+]
+```
+
+**Supported Types:**
+- **Primitives**: address, bool, bytes, duration, int32, int64, int128, int256, uint32, uint64, uint128, uint256
+- **Text**: string, symbol
+- **Special**: timepoint, void, native
+- **Complex**: vec (array), map (dictionary), struct, tuple_struct, enum
+
 ---
 
 ## Usage Examples
@@ -324,6 +397,52 @@ if orders["offers"]:
     trading_tool(action="cancel_order", account_id=account_id, offer_id=offer_id)
 ```
 
+### Example 5: Soroban Smart Contract Interaction
+
+```python
+# Simulate a contract call (read-only, no fees)
+result = soroban_tool(
+    action="simulate",
+    contract_id="CBGTG3KGTGQ3IVHJVRILHLJITP3VX5DSYKHPZKLZARKJ6E5TGZO5IUEU",
+    function_name="hello",
+    parameters='[{"type": "symbol", "value": "world"}]',
+    source_account=account_id
+)
+print(f"Contract returned: {result['result']}")
+
+# Invoke a contract function (write operation)
+result = soroban_tool(
+    action="invoke",
+    contract_id="CBGTG3KGTGQ3IVHJVRILHLJITP3VX5DSYKHPZKLZARKJ6E5TGZO5IUEU",
+    function_name="increment",
+    parameters='[{"type": "address", "value": "' + account_id + '"}]',
+    source_account=account_id,
+    auto_sign=True
+)
+print(f"Transaction hash: {result['hash']}")
+print(f"Status: {result['status']}")
+
+# Read contract storage
+data = soroban_tool(
+    action="get_data",
+    contract_id="CBGTG3KGTGQ3IVHJVRILHLJITP3VX5DSYKHPZKLZARKJ6E5TGZO5IUEU",
+    key="counter",
+    durability="persistent"
+)
+print(f"Counter value: {data['value']}")
+
+# Query contract events
+events = soroban_tool(
+    action="get_events",
+    contract_id="CBGTG3KGTGQ3IVHJVRILHLJITP3VX5DSYKHPZKLZARKJ6E5TGZO5IUEU",
+    start_ledger=1000000,
+    limit=10
+)
+print(f"Found {events['count']} events")
+for event in events['events']:
+    print(f"  Ledger {event['ledger']}: {event['topics']}")
+```
+
 ---
 
 ## Architecture
@@ -339,10 +458,10 @@ if orders["offers"]:
 │  (server.py)         │
 └──────────┬───────────┘
            │
-┌──────────┴───────────┐
-│  Composite Tools     │ ← Consolidated operations
-│  (stellar_tools)     │
-└──────────┬───────────┘
+┌──────────┴───────────────────────┐
+│  Composite Tools                 │ ← Consolidated operations
+│  (stellar_tools, stellar_soroban)│
+└──────────┬───────────────────────┘
            │
 ┌──────────┴───────────┐
 │  KeyManager          │ ← Persistent file storage
@@ -353,10 +472,13 @@ if orders["offers"]:
 │  Stellar SDK         │ ← Blockchain operations
 └──────────┬───────────┘
            │
-┌──────────┴───────────┐
-│  Stellar Testnet     │
-│  (Horizon API)       │
-└──────────────────────┘
+      ┌────┴────┐
+      ↓         ↓
+┌──────────┐ ┌────────────────┐
+│ Horizon  │ │  Soroban RPC   │
+│   API    │ │  (Contracts)   │
+│ (Testnet)│ │   (Testnet)    │
+└──────────┘ └────────────────┘
 ```
 
 ### Design Principles
@@ -475,16 +597,19 @@ All tools return structured responses:
 ```
 py-stellar-mcp/
 ├── server.py                 # FastMCP entry point
-├── stellar_tools.py          # Composite tool implementations
+├── stellar_tools.py          # Horizon API composite tools
+├── stellar_soroban.py        # Soroban RPC async operations
 ├── key_manager.py            # Persistent keypair storage
 ├── test_basic.py             # Basic integration tests
 ├── test_sdex_trading.py      # SDEX trading tests (15/15 passing)
+├── test_soroban.py           # Soroban integration tests
+├── test_soroban_basic.py     # Soroban validation tests
 ├── requirements.txt          # Dependencies
 ├── .env                      # Configuration (git-ignored)
 ├── .stellar_keystore.json    # Keypair storage (git-ignored)
 ├── .gitignore               # Excludes secrets
 ├── CHANGELOG.md             # Version history
-├── SESSION_PROGRESS.md      # Development notes
+├── SOROBAN_IMPLEMENTATION_PLAN.md  # Soroban integration plan
 └── README.md                # This file
 ```
 
@@ -518,17 +643,49 @@ python test_sdex_trading.py
 
 # Run basic tests
 python test_basic.py
+
+# Run Soroban validation tests (no network required)
+python test_soroban_basic.py
+
+# Run Soroban integration tests (requires network)
+python test_soroban.py
 ```
 
 ### Test Reports
 
-Timestamped markdown reports are generated in `test_reports/`:
+All test suites generate timestamped markdown reports in `test_reports/`:
+
+**SDEX Trading Tests** (`test_sdex_trading.py`):
 - Account creation and funding
 - Trustline establishment
 - Orderbook queries
-- Limit order placement
-- Order cancellation
+- Limit order placement and cancellation
 - Real market trade execution
+- Report: `sdex_trading_report_YYYYMMDD_HHMMSS.md`
+
+**Soroban Validation Tests** (`test_soroban_basic.py`):
+- Module imports and structure validation
+- Parameter parsing (simple and complex types)
+- stellar-sdk async dependencies
+- Configuration file validation
+- Report: `soroban_validation_report_YYYYMMDD_HHMMSS.md`
+
+**Soroban Integration Tests** (`test_soroban.py`):
+- Server health checks
+- Account funding
+- Error handling validation
+- Contract invocation (when CONTRACT_ID provided)
+- Report: `soroban_integration_report_YYYYMMDD_HHMMSS.md`
+
+**Running Tests:**
+```bash
+# Run individual test suites
+python test_sdex_trading.py
+python test_soroban_basic.py
+
+# For Soroban integration tests on macOS, set SSL_CERT_FILE:
+SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())") python test_soroban.py
+```
 
 ---
 
@@ -557,17 +714,67 @@ Timestamped markdown reports are generated in `test_reports/`:
 - Verify Python 3.9+ is installed
 - Check virtual environment is activated
 
+### SSL Certificate Error (macOS + Python 3.6+)
+
+**Symptom:**
+```
+SSLCertVerificationError: certificate verify failed: unable to get local issuer certificate
+```
+
+**Cause:** Python 3.6+ on macOS uses its own OpenSSL that doesn't access system certificates.
+
+**Solution 1 - Environment Variable (Quick Fix):**
+```bash
+# Find your certificate path
+python -c "import certifi; print(certifi.where())"
+
+# Add to .env file
+SSL_CERT_FILE=/path/to/.venv/lib/python3.13/site-packages/certifi/cacert.pem
+
+# Or export before running tests
+export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")
+python test_soroban.py
+```
+
+**Solution 2 - Upgrade certifi:**
+```bash
+pip install --upgrade certifi
+```
+
+**Note:** This issue affects Soroban RPC connections (aiohttp) specifically. Classic Horizon API calls work without this fix. See `SOROBAN_TESTING_NOTES.md` for technical details.
+
+### Soroban Contract Testing
+
+**"Contract invocation tests skipped"**
+- No verified live test contracts available on testnet
+- Example contract IDs in documentation have invalid checksums
+- **To enable contract tests:**
+  1. Deploy a Soroban contract to testnet using stellar CLI
+  2. Update `CONTRACT_ID` in `test_soroban.py:126`
+  3. Update function names in tests to match your contract
+
+See `SOROBAN_TESTING_NOTES.md` for deployment guidance.
+
 ---
 
 ## Resources
 
+### Stellar Network
 - **Stellar Developers**: https://developers.stellar.org
 - **Stellar SDK Docs**: https://stellar-sdk.readthedocs.io
 - **Horizon API**: https://developers.stellar.org/docs/data/horizon
+- **Soroban Docs**: https://developers.stellar.org/docs/smart-contracts
 - **Testnet Explorer**: https://stellar.expert/explorer/testnet
 - **USDC Faucet**: https://stellar.org/faucet
+
+### MCP & Tools
 - **FastMCP**: https://github.com/jlowin/fastmcp
 - **MCP Protocol**: https://modelcontextprotocol.io
+
+### Soroban RPC
+- **Testnet RPC**: https://soroban-testnet.stellar.org
+- **Mainnet RPC**: https://soroban-mainnet.stellar.org
+- **Soroban CLI**: https://developers.stellar.org/docs/tools/developer-tools
 
 ---
 

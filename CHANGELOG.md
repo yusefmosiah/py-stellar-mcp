@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 ## Version History
 
+- **3.0.1** (2025-10-24) - Soroban test report generation & macOS SSL certificate fix
+- **3.0.0** (2025-10-23) - 🚀 Soroban smart contract support (6th composite tool)
 - **2.0.0** (2025-10-23) - 🎉 Semantic refactoring with buying/selling API & tool consolidation (70% reduction)
 - **0.1.1** (2025-10-23) - SDEX trading tests and asset conversion bug fix
 - **0.1.0** (2025-10-23) - Initial release with core Stellar MCP functionality
@@ -19,13 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Path payment support
 - Liquidity pool operations
 - Multi-signature account support
-- Persistent keypair storage
 - Transaction TimeBounds configuration
 - Rate limiting
 - Authentication middleware
 - Mainnet support (with appropriate warnings)
 - WebSocket streaming for real-time updates
 - Historical trade data analysis
+- Deploy test Soroban contracts for integration testing
 
 ### Future Improvements
 - Add TimeBounds to all transactions
@@ -35,6 +37,292 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add memo field support
 - Support for sponsored reserves
 - Claimable balance operations
+- Better SSL certificate handling (programmatic aiohttp configuration)
+- Expand Soroban test coverage with real contract deployments
+
+---
+
+## [3.0.1] - 2025-10-24
+
+### Added
+
+#### Soroban Test Reports
+- **test_soroban_basic.py** - Enhanced with markdown report generation
+  - 7/7 validation tests (no network calls)
+  - Tests module imports, server.py structure, parameter parsing
+  - Tests stellar-sdk async dependencies, configuration files
+  - Generates timestamped reports in `test_reports/`
+  - Report: `soroban_validation_report_YYYYMMDD_HHMMSS.md`
+
+- **test_soroban.py** - Enhanced with markdown report generation
+  - 2/2 integration tests passing (server health, error handling)
+  - Contract invocation tests gracefully skipped (no verified live contract)
+  - Includes account funding via Friendbot
+  - Generates timestamped reports in `test_reports/`
+  - Report: `soroban_integration_report_YYYYMMDD_HHMMSS.md`
+
+#### Documentation
+- **SOROBAN_TESTING_NOTES.md** - Technical notes and limitations
+  - Documents macOS SSL certificate issue and workaround
+  - Explains contract testing limitations
+  - Lists known issues and future improvements
+  - Provides guidance for users deploying test contracts
+
+### Fixed
+
+#### SSL Certificate Issue (macOS + Python 3.6+)
+- **Root Cause**: Python 3.6+ on macOS ships with its own OpenSSL that doesn't use system certificates
+- **Impact**: aiohttp (used by stellar-sdk) couldn't verify Stellar testnet SSL certificates
+- **Solution**: Added `SSL_CERT_FILE` environment variable to `.env`
+  - Points to certifi's CA certificate bundle
+  - Enables aiohttp to verify SSL certificates properly
+  - Required for Python 3.13+ on macOS Sequoia
+
+#### Test Report Generation
+- **test_soroban.py** now always generates reports, even on early failures
+- Changed from early return to conditional test execution
+- Ensures all test runs produce documentation
+
+### Changed
+
+#### Test Structure
+- **test_soroban.py** - Updated contract testing approach
+  - Sets `CONTRACT_ID = None` by default (no verified live contract available)
+  - Gracefully skips contract invocation tests when no contract ID provided
+  - Focus on testable functionality: server health, error handling
+  - Documents how to enable contract tests (deploy contract → set CONTRACT_ID)
+
+#### Environment Configuration
+- **.env** - Added SSL certificate configuration
+  - `SSL_CERT_FILE` pointing to certifi's certificate bundle
+  - Documented the issue and how to find certificate path
+  - Required for Python 3.6+ on macOS
+
+### Testing Results
+
+#### Validation Tests
+- ✅ 7/7 tests passed (100% success rate)
+- Tests: imports, structure, parameter parsing, dependencies, configuration
+- No network calls required
+- Report generated: `soroban_validation_report_20251024_195313.md`
+
+#### Integration Tests
+- ✅ 2/2 tests passed (100% success rate)
+- Tests: server connection (SSL fixed), error handling
+- Account funding successful via Friendbot
+- Contract invocation tests skipped (by design, no live contract)
+- Report generated: `soroban_integration_report_20251024_201937.md`
+
+### Known Issues
+
+#### Soroban Contract Testing Limitations
+- **No verified live contracts**: Example contract IDs in Stellar documentation have invalid checksums
+- **Contract invocation tests skipped**: Require deploying real contracts to testnet
+- **Workaround**: Users can deploy contracts and update `CONTRACT_ID` in `test_soroban.py:126`
+- **Impact**: Limited coverage of `simulate` and `invoke` actions
+
+#### SSL Certificate Workaround (macOS)
+- **Temporary solution**: Environment variable `SSL_CERT_FILE`
+- **Better approach**: Configure aiohttp SSL context programmatically in code
+- **Portability concern**: Certificate path is machine-specific
+- **Status**: Works reliably but could be more elegant
+
+### Technical Details
+
+#### SSL Fix Details
+- Python 3.6+ uses bundled OpenSSL instead of macOS system certificates
+- aiohttp doesn't automatically respect `REQUESTS_CA_BUNDLE` or `SSL_CERT_DIR`
+- Setting `SSL_CERT_FILE` to certifi's bundle enables verification
+- Certificate path: `.venv/lib/python3.13/site-packages/certifi/cacert.pem`
+- Find path: `python -c "import certifi; print(certifi.where())"`
+
+#### Contract ID Validation
+- Soroban contract IDs use Stellar strkey format (start with 'C')
+- stellar-sdk validates checksums on contract IDs
+- Invalid IDs fail with `ValueError: Invalid encoded bytes`
+- Documentation examples are often placeholders with bad checksums
+
+### Migration Notes
+
+No breaking changes. Users should:
+1. Update `.env` with `SSL_CERT_FILE` if on macOS with Python 3.6+
+2. Run `python -c "import certifi; print(certifi.where())"` to find certificate path
+3. Review `SOROBAN_TESTING_NOTES.md` for deployment guidance
+
+---
+
+## [3.0.0] - 2025-10-23
+
+### 🚀 Major Version: Soroban Smart Contract Support
+
+This release adds full Soroban smart contract capabilities to the Stellar MCP Server, introducing the 6th composite tool for contract interactions.
+
+### Added
+
+#### Core Soroban Module
+- **stellar_soroban.py** - Async Soroban operations module (305 lines)
+  - `soroban_operations()` - Unified handler for all Soroban actions
+  - `_parse_parameters()` - JSON-to-scval parameter converter
+  - Full async/await support using `SorobanServerAsync`
+  - Support for 22 Soroban parameter types
+
+#### Soroban Actions (4 operations)
+1. **get_data** - Query contract storage
+   - Reads contract persistent/temporary/instance storage
+   - Returns decoded values with ledger metadata
+   - Durability selection (persistent, temporary, instance)
+
+2. **simulate** - Read-only contract simulation
+   - Simulates contract calls without fees or state changes
+   - Returns execution results and resource costs
+   - Provides CPU instructions and memory usage estimates
+   - No account funding required for simulation
+
+3. **invoke** - Execute contract functions
+   - Full transaction flow: simulate → prepare → sign → submit → poll
+   - Auto-signing with stored keypairs
+   - Built-in transaction polling for confirmation
+   - Resource estimation and footprint injection
+
+4. **get_events** - Query contract events
+   - Filter by event types, contract IDs, topics
+   - Paginated results with configurable limits
+   - Start ledger selection for historical queries
+   - Decoded event data structures
+
+#### MCP Tool Registration
+- **soroban_tool** - 6th composite tool in server.py
+  - Comprehensive tool description for LLMs
+  - Parameter format documentation
+  - All 22 supported types listed
+  - Usage examples for each action
+  - Integration with existing KeyManager
+
+#### Test Suites
+- **test_soroban_basic.py** - Validation tests (no network)
+  - 7 tests: imports, structure, parameter parsing
+  - Tests stellar-sdk async dependencies
+  - Configuration file validation
+  - All tests passing (7/7)
+
+- **test_soroban.py** - Integration tests (testnet)
+  - Server health checks
+  - Account funding via Friendbot
+  - Error handling validation
+  - Contract invocation framework (pending live contract)
+
+#### Documentation
+- **README.md** - Soroban section added
+  - Tool description and capabilities
+  - Parameter format guide
+  - Usage examples with all 4 actions
+  - 22 supported parameter types listed
+  - Updated architecture diagram
+
+- **Updated .env** - Soroban RPC configuration
+  - `SOROBAN_RPC_URL=https://soroban-testnet.stellar.org`
+
+#### Dependencies
+- **requirements.txt** - Updated stellar-sdk
+  - `stellar-sdk[aiohttp]==13.1.0` - Async support with aiohttp
+
+### Technical Implementation
+
+#### Async Architecture
+- Built on `SorobanServerAsync` from stellar-sdk 13.1.0
+- Seamless integration with FastMCP's async support
+- Mixed async (Soroban) and sync (Horizon) tools in same server
+- No blocking calls - full async/await throughout
+
+#### Parameter System
+- JSON-based parameter specification with explicit type tags
+- Format: `[{"type": "uint32", "value": 1000}, ...]`
+- Recursive parsing for complex types (vec, map, struct)
+- Full coverage of Soroban's 22 parameter types:
+  - Primitives: uint32, uint64, uint128, uint256, int32-int256
+  - Data: bytes, string, symbol, address
+  - Time: duration, timepoint
+  - Special: bool, void, native
+  - Complex: vec, map, struct, tuple_struct, enum
+
+#### Transaction Flow
+- **Simulate**: Build transaction → simulate (read-only)
+- **Invoke**: Simulate → prepare (inject resources) → sign → submit → poll
+- Auto-resource estimation via SDK's `prepare_transaction()`
+- Auto-signing with KeyManager integration
+- Built-in polling for transaction confirmation
+
+#### Error Handling
+- Structured error responses with details
+- Validation of required parameters per action
+- Network passphrase required for all operations
+- Graceful handling of contract errors and simulation failures
+
+### Server Configuration
+
+**Updated tool count:**
+- v2.0: 5 composite tools
+- v3.0: 6 composite tools (+Soroban)
+
+**Server startup output:**
+```
+🌟 Stellar MCP Server v3.0
+   6. soroban_tool (4 operations) [Soroban RPC] 🆕
+🔮 Smart contracts: Full Soroban support (simulate, invoke, events)
+```
+
+### Testing Results
+
+**Validation tests (test_soroban_basic.py):**
+- ✅ 7/7 tests passed (100%)
+- Module imports validated
+- Parameter parsing verified
+- Dependencies confirmed
+- Configuration checked
+
+**Integration tests (test_soroban.py):**
+- Server connection successful
+- Error handling validated
+- Framework ready for contract testing
+
+### Benefits
+
+✅ **Full smart contract support** - Invoke, simulate, query, and monitor contracts
+✅ **Async performance** - Non-blocking operations using modern async/await
+✅ **Unified interface** - Single composite tool for all Soroban operations
+✅ **Type-safe parameters** - Explicit type system prevents parameter errors
+✅ **LLM-friendly** - Natural language descriptions and clear examples
+✅ **Production-ready** - Full error handling and transaction polling
+
+### Architecture
+
+**Dual-API Design:**
+```
+┌─────────────────────────────────────┐
+│     Stellar MCP Server v3.0         │
+├─────────────────────────────────────┤
+│  Classic Operations (5 tools)       │
+│  └─> Horizon API (REST)            │
+│      - Accounts, Trading, Trustlines│
+│                                      │
+│  Smart Contracts (1 tool)           │
+│  └─> Soroban RPC (JSON-RPC)        │
+│      - Invoke, Simulate, Events     │
+└─────────────────────────────────────┘
+```
+
+### Migration Notes
+
+No breaking changes. Users should:
+1. Update dependencies: `uv pip install -r requirements.txt`
+2. Add `SOROBAN_RPC_URL` to `.env` (optional, has default)
+3. Restart MCP server to register new `soroban_tool`
+
+### Known Limitations
+
+- Contract testing requires deployed contracts (no public test contracts available)
+- Example contract IDs in documentation have invalid checksums
+- See SOROBAN_TESTING_NOTES.md for deployment guidance
 
 ---
 

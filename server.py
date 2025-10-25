@@ -1,12 +1,14 @@
 """
 Stellar Python MCP Server
-FastMCP server with consolidated tools (17 → 5)
+FastMCP server with consolidated tools (17 → 6)
+Includes Horizon API + Soroban RPC support
 """
 
 import os
 from dotenv import load_dotenv
 from fastmcp import FastMCP
-from stellar_sdk import Server
+from stellar_sdk import Server, Network
+from stellar_sdk.soroban_server_async import SorobanServerAsync
 
 from key_manager import KeyManager
 from stellar_tools import (
@@ -16,25 +18,30 @@ from stellar_tools import (
     market_data,
     utilities
 )
+from stellar_soroban import soroban_operations
 
 # Load environment variables
 load_dotenv()
 
 # Configuration
 HORIZON_URL = os.getenv("HORIZON_URL", "https://horizon-testnet.stellar.org")
+SOROBAN_RPC_URL = os.getenv("SOROBAN_RPC_URL", "https://soroban-testnet.stellar.org")
 STELLAR_NETWORK = os.getenv("STELLAR_NETWORK", "testnet")
+TESTNET_NETWORK_PASSPHRASE = Network.TESTNET_NETWORK_PASSPHRASE
 
 # Initialize FastMCP server
 mcp = FastMCP("Stellar MCP Server")
 
 # Initialize Stellar SDK and KeyManager
 horizon = Server(HORIZON_URL)
+soroban = SorobanServerAsync(SOROBAN_RPC_URL)
 keys = KeyManager()
 
 print(f"🚀 Stellar MCP Server (Composite Tools)")
 print(f"📡 Network: {STELLAR_NETWORK}")
 print(f"🌐 Horizon: {HORIZON_URL}")
-print(f"🔧 Tool count: 5 composite tools (was 17)")
+print(f"🔮 Soroban RPC: {SOROBAN_RPC_URL}")
+print(f"🔧 Tool count: 6 composite tools (was 17)")
 print()
 
 
@@ -268,22 +275,144 @@ def market_data_tool(
 def utilities_tool(action: str) -> dict:
     """
     Network utilities and server information.
-    
+
     Actions:
         status - Get Horizon server status and health
         fee - Estimate current transaction fee
-    
+
     Args:
         action: Utility operation (status or fee)
-    
+
     Examples:
         utilities_tool(action="status")
         utilities_tool(action="fee")
-    
+
     Returns:
         Action-specific utility data
     """
     return utilities(action=action, horizon=horizon)
+
+
+# ============================================================================
+# COMPOSITE TOOL 6: SOROBAN (4 operations → 1 tool)
+# ============================================================================
+
+@mcp.tool()
+async def soroban_tool(
+    action: str,
+    contract_id: str = None,
+    key: str = None,
+    function_name: str = None,
+    parameters: str = None,
+    source_account: str = None,
+    durability: str = "persistent",
+    start_ledger: int = None,
+    event_types: list = None,
+    limit: int = 100,
+    auto_sign: bool = True
+) -> dict:
+    """
+    Unified Soroban smart contract operations tool.
+
+    Actions:
+        get_data - Read contract storage data directly
+        simulate - Simulate contract call (read-only, no fees)
+        invoke - Execute contract function (writes to blockchain)
+        get_events - Query contract event history
+
+    Args:
+        action: Operation to perform (see Actions above)
+        contract_id: Contract address (C...)
+        key: Storage key for get_data action
+        function_name: Contract function name for simulate/invoke
+        parameters: JSON string of typed parameters (see Parameter Format)
+        source_account: Caller's public key (G...)
+        durability: Storage type for get_data ("persistent" or "temporary")
+        start_ledger: Starting ledger for get_events
+        event_types: Event type filters for get_events
+        limit: Result limit for get_events (default: 100)
+        auto_sign: Auto-sign and submit for invoke (default: True)
+
+    Parameter Format:
+        JSON string with type tags for all contract parameters:
+
+        '[
+            {"type": "address", "value": "GABC..."},
+            {"type": "uint32", "value": 1000},
+            {"type": "string", "value": "hello"},
+            {"type": "symbol", "value": "token_name"},
+            {"type": "vec", "value": [
+                {"type": "uint32", "value": 1},
+                {"type": "uint32", "value": 2}
+            ]}
+        ]'
+
+    Supported Types:
+        Primitives: address, bool, bytes, duration, int32, int64, int128,
+                   int256, uint32, uint64, uint128, uint256
+        Text: string, symbol
+        Special: timepoint, void, native
+        Complex: vec (array), map (dictionary), struct, tuple_struct, enum
+
+    Examples:
+        # Read contract storage
+        soroban_tool(
+            action="get_data",
+            contract_id="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            key="counter",
+            durability="persistent"
+        )
+
+        # Simulate contract call (read-only)
+        soroban_tool(
+            action="simulate",
+            contract_id="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            function_name="get_balance",
+            parameters='[{"type": "address", "value": "GABC..."}]',
+            source_account="GABC..."
+        )
+
+        # Execute contract function (write)
+        soroban_tool(
+            action="invoke",
+            contract_id="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            function_name="transfer",
+            parameters='[
+                {"type": "address", "value": "GFROM..."},
+                {"type": "address", "value": "GTO..."},
+                {"type": "int128", "value": 1000000}
+            ]',
+            source_account="GFROM...",
+            auto_sign=True
+        )
+
+        # Query contract events
+        soroban_tool(
+            action="get_events",
+            contract_id="CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+            start_ledger=1000000,
+            limit=50
+        )
+
+    Returns:
+        Action-specific response dict with success/error status
+    """
+    return await soroban_operations(
+        action=action,
+        soroban_server=soroban,
+        key_manager=keys,
+        contract_id=contract_id,
+        key=key,
+        function_name=function_name,
+        parameters=parameters,
+        source_account=source_account,
+        durability=durability,
+        start_ledger=start_ledger,
+        event_types=event_types,
+        limit=limit,
+        auto_sign=auto_sign,
+        network_passphrase=TESTNET_NETWORK_PASSPHRASE
+    )
 
 
 # ============================================================================
@@ -292,14 +421,16 @@ def utilities_tool(action: str) -> dict:
 
 if __name__ == "__main__":
     print("🔧 Registered composite tools:")
-    print("   1. account_manager_tool (7 operations)")
-    print("   2. trading_tool (6 operations)")
-    print("   3. trustline_manager_tool (2 operations)")
-    print("   4. market_data_tool (2 operations)")
-    print("   5. utilities_tool (2 operations)")
+    print("   1. account_manager_tool (7 operations) [Horizon]")
+    print("   2. trading_tool (6 operations) [Horizon]")
+    print("   3. trustline_manager_tool (2 operations) [Horizon]")
+    print("   4. market_data_tool (2 operations) [Horizon]")
+    print("   5. utilities_tool (2 operations) [Horizon]")
+    print("   6. soroban_tool (4 operations) [Soroban RPC] 🆕")
     print()
     print("📊 Token savings: ~70% reduction vs previous version (17 tools)")
     print("⚡ Workflow simplification: 1-2 calls vs 3-5 calls")
+    print("🔮 Smart contracts: Full Soroban support (simulate, invoke, events)")
     print()
     print("✅ Starting MCP server...")
     print()
